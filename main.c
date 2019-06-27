@@ -28,6 +28,12 @@ typedef struct {
 	int PixelCnt[256];
 }Pixels;
 
+
+int MX,MY;
+SDL_Point WaveMachine[128];
+int WaveMachineCnt=0;
+
+
 Field* mkField(int Width,int Height,double dx,double dy,double dt,double s){
 	Field* f=(Field*)malloc(sizeof(Field));
 	if(f==0)return 0;
@@ -112,7 +118,7 @@ void Field_calculate(Field* f){
 				Cw=0;
 			}
 			Nc=2*Cc-Pc+pow(dt,2)*pow(s,2)*((Cw-2*Cc+Ce)/dx+(Cs-2*Cc+Cn)/dy);
-			f->NF[x+y*f->width]=Nc;
+			f->NF[x+y*f->width]=Nc*0.999;
 		}
 	}
 	double* tmp;
@@ -139,7 +145,9 @@ void Field_transPixels(Field* f,Pixels* ps,double min,double max){
 
 void Field_Frame(Field* f){
 	static int t=0;
-	f->CF[320+240*f->width]=1000*sin(t*M_PI*2/100);
+	for(int i=0;i<WaveMachineCnt;i++){
+		f->CF[WaveMachine[i].x+WaveMachine[i].y*f->width]=900*sin(t*M_PI*2/100);
+	}
 	t++;
 }
 
@@ -188,14 +196,13 @@ int  WinMain(){
 	
 	while(1){
 		for(int i=0;i<SKIPCNT;i++){
-			f->CF[320+240*640]+=1000*sin(t*M_PI*2.0/10.0);
 			Field_Frame(f);
 			Field_calculate(f);
 			t++;
 		}
 		Field_transPixels(f,ps,RANGE_MIN,RANGE_MAX);
 		for(int i=0;i<256;i++){
-			SDL_SetRenderDrawColor(sr,i,i,i,255);
+			SDL_SetRenderDrawColor(sr,0,0,i,255);
 			SDL_RenderDrawPoints(sr,ps->Pixel[i],ps->PixelCnt[i]);
 		}
 		T=SDL_CreateTextureFromSurface(r,S);
@@ -204,10 +211,21 @@ int  WinMain(){
 		SDL_RenderPresent(r);
 		while(SDL_PollEvent(&ev)){
 			switch(ev.type){
+			case SDL_MOUSEBUTTONDOWN:
+				WaveMachine[WaveMachineCnt]=(SDL_Point){MX,MY};
+				WaveMachineCnt++;
+				break;
+			case SDL_MOUSEMOTION:
+				MX=ev.motion.x;
+				MY=ev.motion.y;
+				f->CF[MX+MY*f->width]=10000;
+				break;
 			case SDL_QUIT:
 				SDL_DestroyRenderer(r);
 				SDL_DestroyWindow(w);
 				SDL_Quit();
+				freePixels(ps);
+				freeField(f);
 				exit(0);
 			}
 		}
